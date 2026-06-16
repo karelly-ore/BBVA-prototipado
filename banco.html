@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prototipo BBVA Perú - Flujo de Transferencia</title>
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS DE DISEÑO
+   ═══════════════════════════════════════════ */
+:root {
+  --bbva-blue:       #004481;
+  --bbva-blue-dark:  #002E5D;
+  --bbva-blue-mid:   #0C5FA0;
+  --bbva-blue-light: #E6F1FB;
+  --bbva-sky:        #B5D4F4;
+
+  --text-primary:    #212121;
+  --text-secondary:  #595959;
+  --text-tertiary:   #757575;
+  --placeholder:     #757575;
+
+  --success:         #2E7D32;
+  --success-light:   #EAF3DE;
+  --error:           #C62828;
+  --error-light:     #FCEAEA;
+
+  --bg-white:        #FFFFFF;
+  --bg-gray:         #F2F4F8;
+  --bg-card:         #FFFFFF;
+  --border-light:    #E0E4EA;
+  --border-mid:      #B5D4F4;
+
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Courier New', monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+}
+
+/* ── RESET Y CENTRADO ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  background: #EEF3F9;
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* ══════════════════════════════════
+   TELÉFONO
+   ══════════════════════════════════ */
+.phone-shell {
+  width: 340px;
+  background: #1C1C1E;
+  border-radius: 44px;
+  padding: 14px 10px;
+  box-shadow:
+    0 0 0 1px #3A3A3C,
+    0 20px 60px rgba(0,0,0,0.45),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+  position: relative;
+}
+.phone-shell::before {
+  content: '';
+  display: block;
+  width: 80px;
+  height: 12px;
+  background: #0a0a0a;
+  border-radius: 6px;
+  margin: 0 auto 8px;
+}
+.phone-screen {
+  background: var(--bg-white);
+  border-radius: 32px;
+  overflow: hidden;
+  height: 620px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.os-bar {
+  background: var(--bbva-blue);
+  padding: 6px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.os-bar span { font-size: 10px; color: rgba(255,255,255,0.9); font-weight: 500; }
+
+.app-screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+.app-screen.active { display: flex; }
+
+.nav-bar {
+  background: var(--bbva-blue);
+  padding: 11px 14px 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.nav-back {
+  width: 32px; height: 32px;
+  background: rgba(255,255,255,0.18);
+  border: none; border-radius: 50%;
+  color: #fff; font-size: 17px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.nav-title { font-size: 14px; font-weight: 500; color: #fff; flex: 1; }
+
+.stepper-wrap {
+  background: var(--bbva-blue-mid);
+  padding: 8px 14px 6px;
+  flex-shrink: 0;
+}
+.stepper-dots {
+  display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 4px;
+}
+.sdot {
+  width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,0.3); transition: all 0.3s; flex-shrink: 0;
+}
+.sdot.done { background: rgba(255,255,255,0.7); }
+.sdot.active { background: #fff; width: 28px; border-radius: 6px; box-shadow: 0 0 6px rgba(255,255,255,0.5); }
+.stepper-label { font-size: 11px; color: rgba(255,255,255,0.92); text-align: center; font-weight: 500; letter-spacing: 0.2px; }
+
+.screen-body {
+  flex: 1; overflow-y: auto; background: var(--bg-gray); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+}
+
+/* ── DASHBOARD ── */
+.dash-head { background: var(--bbva-blue); padding: 14px 14px 20px; flex-shrink: 0; }
+.dash-greet { color: rgba(255,255,255,0.75); font-size: 12px; }
+.dash-name  { color: #fff; font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+.dash-balance-card { background: #fff; border-radius: var(--radius-md); padding: 12px 14px; }
+.dash-bal-label { font-size: 11px; color: var(--text-tertiary); margin-bottom: 2px; }
+.dash-bal-val   { font-size: 22px; font-weight: 600; color: var(--bbva-blue); }
+.dash-bal-num   { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.dash-body { padding: 12px 14px; flex: 1; overflow-y: auto; background: var(--bg-gray); }
+
+.quick-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+.qa-btn {
+  background: #fff; border: 0.5px solid var(--border-light); border-radius: 12px; padding: 10px 4px;
+  text-align: center; cursor: pointer; min-height: 52px; transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.qa-btn:hover { background: var(--bbva-blue-light); }
+.qa-btn.highlight { background: var(--bbva-blue); }
+.qa-btn .qa-ico { font-size: 19px; color: var(--bbva-blue); }
+.qa-btn.highlight .qa-ico { color: #fff; }
+.qa-btn .qa-lbl { font-size: 10px; color: var(--text-secondary); font-weight: 500; }
+.qa-btn.highlight .qa-lbl { color: #fff; }
+
+.section-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+.tx-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border-light); }
+.tx-row:last-child { border: none; }
+.tx-av { width: 32px; height: 32px; border-radius: 50%; background: var(--bbva-blue-light); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--bbva-blue); flex-shrink: 0; }
+.tx-info { flex: 1; }
+.tx-name { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.tx-date { font-size: 10px; color: var(--text-tertiary); }
+.tx-amt { font-size: 12px; font-weight: 600; }
+.tx-out { color: var(--error); }
+.tx-in  { color: var(--success); }
+
+/* ── COMPONENTES GENERALES ── */
+.card { background: var(--bg-card); border-radius: var(--radius-md); border: 0.5px solid var(--border-light); padding: 14px; }
+.card-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }
+
+.field { margin-bottom: 12px; }
+.field-label { font-size: 12px; font-weight: 500; color: var(--bbva-blue); margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+.pinput {
+  width: 100%; height: 48px; border: 1.5px solid var(--border-mid); border-radius: var(--radius-sm); padding: 0 12px;
+  font-size: 13px; color: var(--text-primary); background: #fff; font-family: var(--font-sans); outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pinput:focus { border-color: var(--bbva-blue); box-shadow: 0 0 0 3px rgba(0,68,129,0.12); }
+.pinput::placeholder { color: var(--placeholder); }
+.pinput.cci-input { font-family: var(--font-mono); font-size: 13px; letter-spacing: 2px; }
+.pinput.error { border-color: var(--error); background: var(--error-light); }
+
+.pselect {
+  width: 100%; height: 48px; border: 1.5px solid var(--border-mid); border-radius: var(--radius-sm); padding: 0 12px;
+  font-size: 13px; color: var(--text-primary); background: #fff; font-family: var(--font-sans); outline: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23595959' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center; background-color: #fff;
+}
+
+.hint { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; }
+
+.cci-help-link {
+  font-size: 12px; color: var(--bbva-blue); text-decoration: underline; cursor: pointer; background: none; border: none; font-family: var(--font-sans); padding: 0; display: inline-block; margin-top: 5px;
+}
+.cci-help-box {
+  display: none; background: var(--bbva-blue-light); border: 1px solid var(--bbva-sky); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; color: #0c447c; line-height: 1.5; margin-top: 6px;
+}
+.cci-help-box.visible { display: block; }
+.err-msg { display: none; font-size: 11px; color: var(--error); margin-top: 4px; align-items: center; gap: 4px; }
+.err-msg.visible { display: flex; }
+
+.amount-field {
+  display: flex; align-items: center; gap: 10px; height: 56px; border: 2px solid var(--bbva-blue); border-radius: var(--radius-sm); padding: 0 14px; background: #fff;
+}
+.amount-currency { font-size: 18px; font-weight: 600; color: var(--bbva-blue); }
+.amount-input { border: none; outline: none; font-size: 24px; font-weight: 600; color: var(--text-primary); width: 100%; background: transparent; font-family: var(--font-sans); }
+
+.btn-primary {
+  width: 100%; min-height: 48px; margin-bottom: 24px; background: var(--bbva-blue); color: #fff; border: none; border-radius: var(--radius-md);
+  font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s;
+}
+.btn-primary:hover { background: var(--bbva-blue-dark); }
+.btn-primary:disabled { background: #B0B8C5; cursor: not-allowed; }
+
+.btn-secondary {
+  width: 100%; min-height: 48px; background: transparent; color: var(--bbva-blue); border: 1.5px solid var(--bbva-blue); border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); margin-bottom: 8px; transition: all 0.15s;
+}
+.btn-secondary:hover { background: var(--bbva-blue-light); }
+
+/* ── CONFIRMACIÓN Y ÉXITO ── */
+.confirm-summary { background: var(--bbva-blue-light); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 10px; }
+.conf-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 0; border-bottom: 0.5px solid var(--border-mid); font-size: 13px; }
+.conf-row:last-child { border: none; }
+.conf-label { color: var(--text-secondary); }
+.conf-value { font-weight: 500; color: var(--text-primary); text-align: right; max-width: 60%; }
+.conf-amount-big { font-size: 28px; font-weight: 700; color: var(--bbva-blue); text-align: center; padding: 10px 0 4px; }
+.conf-amount-lbl { font-size: 11px; color: var(--text-tertiary); text-align: center; margin-bottom: 12px; }
+
+.token-box { background: #EEF4FC; border: 1.5px solid var(--bbva-sky); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 10px; }
+.token-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.token-title { font-size: 12px; font-weight: 600; color: #185FA5; }
+.token-timer { font-size: 11px; color: #185FA5; background: #D4E9F7; border-radius: 6px; padding: 2px 8px; font-family: var(--font-mono); }
+.token-digits { display: flex; gap: 6px; justify-content: center; }
+.tok-dig { width: 38px; height: 46px; background: #fff; border: 1.5px solid #185FA5; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: var(--bbva-blue); font-family: var(--font-mono); }
+.token-note { font-size: 11px; color: var(--text-tertiary); text-align: center; margin-top: 8px; }
+
+.success-screen { display: flex; flex-direction: column; align-items: center; padding: 28px 18px 20px; background: var(--bg-gray); flex: 1; gap: 10px; }
+.success-icon { width: 80px; height: 80px; background: var(--success-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; animation: popIn 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+@keyframes popIn { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+.success-title  { font-size: 20px; font-weight: 700; color: var(--success); text-align: center; }
+.success-amount { font-size: 30px; font-weight: 700; color: var(--text-primary); text-align: center; }
+.success-to     { font-size: 13px; color: var(--text-secondary); text-align: center; }
+.success-op     { font-size: 11px; color: var(--text-tertiary); background: #fff; border-radius: 8px; padding: 6px 12px; text-align: center; border: 0.5px solid var(--border-light); }
+.success-divider { width: 100%; border: none; border-top: 0.5px solid var(--border-light); margin: 4px 0; }
+
+.push-toast {
+  position: absolute; top: -120px; left: 50%; transform: translateX(-50%); width: 300px; background: #1C1C1E; color: #fff;
+  border-radius: 14px; padding: 12px 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.45); display: flex; gap: 10px; align-items: flex-start; z-index: 1000; transition: top 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.push-toast.show { top: 20px; }
+.toast-app-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--bbva-blue); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.toast-content { flex: 1; }
+.toast-app-name { font-size: 10px; color: rgba(255,255,255,0.6); font-weight: 500; margin-bottom: 1px; }
+.toast-title    { font-size: 12px; font-weight: 600; color: #fff; margin-bottom: 1px; }
+.toast-body     { font-size: 11px; color: rgba(255,255,255,0.85); line-height: 1.4; }
+</style>
+</head>
+<body>
+
+<div class="phone-shell">
+  <div class="phone-screen" role="region" aria-label="Prototipo app BBVA Perú">
+
+    <!-- TOAST NOTIFICACIÓN PUSH -->
+    <div class="push-toast" id="pushToast" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="toast-app-icon">🏦</div>
+      <div class="toast-content">
+        <div class="toast-app-name">BBVA Perú · Ahora</div>
+        <div class="toast-title">¡Transferencia exitosa!</div>
+        <div class="toast-body" id="toastBody">Transferencia exitosa de S/ 100.00 a Carlos R.</div>
+      </div>
+    </div>
+
+    <!-- BARRA OS -->
+    <div class="os-bar">
+      <span>9:41</span>
+      <span>⚡ 78%</span>
+    </div>
+
+    <!-- ══ PANTALLA 0: DASHBOARD ══ -->
+    <div class="app-screen active" id="screen-0">
+      <div class="dash-head">
+        <p class="dash-greet">Buenos días,</p>
+        <p class="dash-name">Shamira Loayza</p>
+        <div class="dash-balance-card">
+          <p class="dash-bal-label">Cuenta de ahorros</p>
+          <p class="dash-bal-val">S/ 2,450.80</p>
+          <p class="dash-bal-num">0011-0106-0100234210</p>
+        </div>
+      </div>
+      <div class="dash-body">
+        <div class="quick-grid">
+          <button class="qa-btn highlight" onclick="gotoScreen(1)" aria-label="Enviar dinero a otro banco, iniciar transferencia interbancaria">
+            <span class="qa-ico">↗</span>
+            <span class="qa-lbl">Transferir</span>
+          </button>
+          <button class="qa-btn" aria-label="Pagar servicios">
+            <span class="qa-ico">📄</span>
+            <span class="qa-lbl">Pagar</span>
+          </button>
+          <button class="qa-btn" aria-label="Recargar celular">
+            <span class="qa-ico">📱</span>
+            <span class="qa-lbl">Recargar</span>
+          </button>
+          <button class="qa-btn" aria-label="Ver más opciones">
+            <span class="qa-ico">➕</span>
+            <span class="qa-lbl">Más</span>
+          </button>
+        </div>
+        <p class="section-title">Movimientos recientes</p>
+        <div class="tx-row">
+          <div class="tx-av">KO</div>
+          <div class="tx-info">
+            <p class="tx-name">Karelly Ore</p>
+            <p class="tx-date">Hoy, 8:15 am</p>
+          </div>
+          <span class="tx-amt tx-in">+S/ 200.00</span>
+        </div>
+        <div class="tx-row">
+          <div class="tx-av">SM</div>
+          <div class="tx-info">
+            <p class="tx-name">Supermercado Metro</p>
+            <p class="tx-date">Ayer, 6:42 pm</p>
+          </div>
+          <span class="tx-amt tx-out">−S/ 85.50</span>
+        </div>
+        <div class="tx-row">
+          <div class="tx-av">AR</div>
+          <div class="tx-info">
+            <p class="tx-name">Adrian Ramos</p>
+            <p class="tx-date">13 jun, 11:00 am</p>
+          </div>
+          <span class="tx-amt tx-out">−S/ 150.00</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-screen" id="screen-1">
+      <div class="nav-bar">
+        <button class="nav-back" onclick="gotoScreen(0)" aria-label="Regresar al inicio">←</button>
+        <span class="nav-title">Enviar dinero a otro banco</span>
+      </div>
+
+
+      <div class="screen-body">
+        <div class="card">
+          <p class="card-title">¿A quién quieres enviar dinero?</p>
+
+          <div class="field">
+            <label class="field-label" for="sel-banco">Banco de destino</label>
+            <select class="pselect" id="sel-banco" aria-required="true">
+              <option value="">Selecciona el banco</option>
+              <option value="bcp">Banco de Crédito (BCP)</option>
+              <option value="interbank">Interbank</option>
+              <option value="scotiabank">Scotiabank</option>
+              <option value="banbif">BanBif</option>
+              <option value="pichincha">Banco Pichincha</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="inp-cci">Número de cuenta (CCI)</label>
+            <input
+              class="pinput cci-input"
+              type="text"
+              id="inp-cci"
+              inputmode="numeric"
+              maxlength="27"
+              placeholder="0000 0000 0000 0000 0000"
+              aria-label="Número CCI de 20 dígitos del banco destino"
+              aria-describedby="cci-hint cci-error"
+              oninput="chunkCCI(this)"
+            >
+            <p class="hint" id="cci-hint">El CCI tiene 20 dígitos y se agrupa de a 4.</p>
+            <button
+              class="cci-help-link"
+              id="cciHelpBtn"
+              onclick="toggleCCIHelp()"
+              aria-expanded="false"
+              aria-controls="cci-help-box"
+            >¿Qué es el CCI?</button>
+            <div class="cci-help-box" id="cci-help-box" role="region" aria-label="Qué es el CCI">
+              <strong>CCI = Código de Cuenta Interbancario</strong><br>
+              Es el número de 20 dígitos que identifica tu cuenta en cualquier banco del Perú. Lo encuentras en la app o web del banco de destino, en la sección "Mis cuentas".
+            </div>
+            <div class="err-msg" id="cci-error" role="alert"><span>⚠</span> El CCI debe tener exactamente 20 dígitos.</div>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="inp-nombre">Nombre del destinatario</label>
+            <input class="pinput" type="text" id="inp-nombre" placeholder="Ej.: Carlos Ramírez López" aria-required="true">
+          </div>
+
+        </div>
+
+        <button class="btn-primary" onclick="validateStep1()" aria-label="Continuar al paso 2, ingresar monto">
+          Continuar →
+        </button>
+      </div>
+    </div>
+
+    <div class="app-screen" id="screen-2">
+      <div class="nav-bar">
+        <button class="nav-back" onclick="gotoScreen(1)" aria-label="Regresar al paso anterior">←</button>
+        <span class="nav-title">Enviar dinero a otro banco</span>
+      </div>
+
+
+      <div class="screen-body">
+        <div class="card">
+          <p class="card-title">¿Cuánto quieres enviar?</p>
+          <div class="field">
+            <label class="field-label" for="inp-monto">Monto en soles</label>
+            <div class="amount-field">
+              <span class="amount-currency">S/</span>
+              <input
+                class="amount-input"
+                type="number"
+                id="inp-monto"
+                inputmode="decimal"
+                placeholder="0.00"
+                min="1" max="2450.80"
+                aria-label="Monto a enviar en soles"
+                aria-describedby="monto-hint"
+              >
+            </div>
+            <p class="hint" id="monto-hint">Saldo disponible: <strong>S/ 2,450.80</strong>. Mínimo S/ 1.00.</p>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="sel-concepto">Concepto de la transferencia</label>
+            <select class="pselect" id="sel-concepto">
+              <option value="">Selecciona un concepto</option>
+              <option>Pago de servicios</option>
+              <option>Préstamo personal</option>
+              <option>Pago de alquiler</option>
+              <option>Compra/venta</option>
+              <option>Otro</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-primary" onclick="validateStep2()" aria-label="Continuar al paso 3, confirmar transferencia">
+          Continuar →
+        </button>
+      </div>
+    </div>
+
+    <div class="app-screen" id="screen-3">
+      <div class="nav-bar">
+        <button class="nav-back" onclick="gotoScreen(2)" aria-label="Regresar al paso anterior">←</button>
+        <span class="nav-title">Enviar dinero a otro banco</span>
+      </div>
+
+      <div class="screen-body">
+        <p class="conf-amount-lbl">Total a enviar</p>
+        <p class="conf-amount-big" id="conf-amount-display">S/ 100.00</p>
+
+        <div class="confirm-summary" role="region" aria-label="Resumen de la transferencia">
+          <div class="conf-row">
+            <span class="conf-label">Banco destino</span>
+            <span class="conf-value" id="conf-banco">BCP</span>
+          </div>
+          <div class="conf-row">
+            <span class="conf-label">CCI</span>
+            <span class="conf-value" id="conf-cci" style="font-family: var(--font-mono); font-size:12px;">0019 1234 5678 9012 3456</span>
+          </div>
+          <div class="conf-row">
+            <span class="conf-label">Destinatario</span>
+            <span class="conf-value" id="conf-nombre">Carlos Ramírez</span>
+          </div>
+          <div class="conf-row">
+            <span class="conf-label">Concepto</span>
+            <span class="conf-value" id="conf-concepto">Préstamo personal</span>
+          </div>
+          <div class="conf-row">
+            <span class="conf-label">Comisión</span>
+            <span class="conf-value">S/ 0.00 (gratuito)</span>
+          </div>
+        </div>
+
+        <div class="token-box" role="region" aria-label="Token de seguridad digital">
+          <div class="token-header">
+            <span class="token-title">Código de seguridad (Token)</span>
+            <span class="token-timer" id="tokenTimer">00:30</span>
+          </div>
+          <div class="token-digits" aria-label="Código token de 6 dígitos generado automáticamente">
+            <div class="tok-dig" id="td0">4</div>
+            <div class="tok-dig" id="td1">7</div>
+            <div class="tok-dig" id="td2">1</div>
+            <div class="tok-dig" id="td3">8</div>
+            <div class="tok-dig" id="td4">3</div>
+            <div class="tok-dig" id="td5">2</div>
+          </div>
+          <p class="token-note">Este código se generó automáticamente. Se renueva cada 30 segundos.</p>
+        </div>
+
+        <button class="btn-primary" id="btnTransferir" onclick="doTransfer()" aria-label="Confirmar y transferir ahora">
+         Transferir ahora
+        </button>
+        <button class="btn-secondary" onclick="gotoScreen(2)">Modificar datos</button>
+      </div>
+    </div>
+
+    <!-- ══ PANTALLA 4: ÉXITO ══ -->
+    <div class="app-screen" id="screen-4">
+      <div class="nav-bar">
+        <span style="width:32px"></span>
+        <span class="nav-title" style="text-align:center;">Transferencia completada</span>
+        <span style="width:32px"></span>
+      </div>
+
+      <div class="success-screen" role="main" aria-label="Resultado de la transferencia">
+        <div class="success-icon" aria-hidden="true">✅</div>
+        <p class="success-title">¡Transferencia exitosa!</p>
+        <p class="success-amount" id="succ-amount">S/ 100.00</p>
+        <p class="success-to" id="succ-to">enviados a Carlos Ramírez</p>
+        <hr class="success-divider">
+        <p class="success-op">Nº de operación: <strong>TRX-2026-0614-8821</strong></p>
+        <p style="font-size:11px; color:var(--text-tertiary); text-align:center;">
+          Fecha: 16 jun 2026 · 09:41 hrs<br>
+          Recibirás un comprobante en tu correo registrado.
+        </p>
+        <button class="btn-primary" onclick="gotoScreen(0)" style="margin-top:8px;" aria-label="Volver al inicio de la aplicación">
+          Volver al inicio
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let currentScreen = 0;
+let tokenInterval = null;
+let tokenSeconds  = 30;
+
+function gotoScreen(n) {
+  document.querySelectorAll('.app-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + n).classList.add('active');
+  currentScreen = n;
+
+  if (n === 3) startTokenTimer();
+  else         stopTokenTimer();
+
+  if (n === 4) {
+    setTimeout(showPushToast, 800);
+  }
+}
+
+function toggleCCIHelp() {
+  const box = document.getElementById('cci-help-box');
+  const btn = document.getElementById('cciHelpBtn');
+  const isVisible = box.classList.toggle('visible');
+  btn.setAttribute('aria-expanded', isVisible ? 'true' : 'false');
+}
+
+function chunkCCI(input) {
+  let raw = input.value.replace(/\D/g, '').slice(0, 20);
+  let chunked = raw.match(/.{1,4}/g);
+  input.value = chunked ? chunked.join(' ') : raw;
+
+  const errEl = document.getElementById('cci-error');
+  if (raw.length > 0 && raw.length < 20) {
+    input.classList.add('error');
+    errEl.classList.add('visible');
+  } else {
+    input.classList.remove('error');
+    errEl.classList.remove('visible');
+  }
+}
+
+function validateStep1() {
+  const banco  = document.getElementById('sel-banco').value;
+  const cciRaw = document.getElementById('inp-cci').value.replace(/\D/g,'');
+  const nombre = document.getElementById('inp-nombre').value.trim();
+
+  if (!banco)             return alert('Selecciona el banco de destino.');
+  if (cciRaw.length !== 20) return alert('El CCI debe tener 20 dígitos.');
+  if (!nombre)            return alert('Ingresa el nombre del destinatario.');
+
+  const bancoMap = { bcp:'Banco de Crédito (BCP)', interbank:'Interbank', scotiabank:'Scotiabank', banbif:'BanBif', pichincha:'Banco Pichincha' };
+  document.getElementById('conf-banco').textContent  = bancoMap[banco] || banco;
+  document.getElementById('conf-nombre').textContent = nombre;
+  
+  const cciChunks = cciRaw.match(/.{1,4}/g);
+  document.getElementById('conf-cci').textContent = cciChunks ? cciChunks.join(' ') : cciRaw;
+
+  gotoScreen(2);
+}
+
+function validateStep2() {
+  const monto    = parseFloat(document.getElementById('inp-monto').value);
+  const concepto = document.getElementById('sel-concepto').value;
+
+  if (!monto || monto < 1)   return alert('Monto mínimo: S/ 1.00');
+  if (monto > 2450.80)       return alert('El monto supera tu saldo (S/ 2,450.80).');
+  if (!concepto)             return alert('Selecciona el concepto.');
+
+  const fmt = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2 }).format(monto);
+  document.getElementById('conf-amount-display').textContent = 'S/ ' + fmt;
+  document.getElementById('conf-concepto').textContent       = concepto;
+  document.getElementById('succ-amount').textContent         = 'S/ ' + fmt;
+
+  const nombre = document.getElementById('inp-nombre').value.trim();
+  document.getElementById('succ-to').textContent = 'enviados a ' + (nombre || 'destinatario');
+  
+  document.getElementById('toastBody').textContent = 
+    'Transferencia exitosa de S/ ' + fmt + ' a ' + (nombre || 'destinatario');
+
+  gotoScreen(3);
+}
+
+function generateToken() {
+  const digits = [0,1,2,3,4,5];
+  digits.forEach(i => {
+    document.getElementById('td' + i).textContent = Math.floor(Math.random() * 10);
+  });
+}
+
+function startTokenTimer() {
+  stopTokenTimer();
+  tokenSeconds = 30;
+  generateToken();
+  updateTimerDisplay();
+  tokenInterval = setInterval(() => {
+    tokenSeconds--;
+    if (tokenSeconds <= 0) {
+      tokenSeconds = 30;
+      generateToken();
+    }
+    updateTimerDisplay();
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const s = String(tokenSeconds).padStart(2, '0');
+  const el = document.getElementById('tokenTimer');
+  if (el) el.textContent = '00:' + s;
+}
+
+function stopTokenTimer() {
+  if (tokenInterval) { clearInterval(tokenInterval); tokenInterval = null; }
+}
+
+function doTransfer() {
+  const btn = document.getElementById('btnTransferir');
+  btn.disabled = true;
+  btn.textContent = '⏳ Procesando...';
+  setTimeout(() => {
+    stopTokenTimer();
+    gotoScreen(4);
+    btn.disabled = false;
+    btn.innerHTML = '🚀 Transferir ahora';
+  }, 1800);
+}
+
+function showPushToast() {
+  const toast = document.getElementById('pushToast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 4500);
+}
+</script>
+</body>
+</html>
